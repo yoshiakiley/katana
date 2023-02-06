@@ -34,15 +34,19 @@ func (m *MongoCli[R]) Close() error {
 	return m.cli.Disconnect(ctx)
 }
 
-func NewMongoCli[R core.IObject](ctx context.Context, uri string) (*MongoCli[R], error) {
+func NewMongoCli[R core.IObject]() *MongoCli[R] {
+	return &MongoCli[R]{
+		cli: cli,
+	}
+}
+
+func InitMongoCli(ctx context.Context, uri string) error {
 	var err error
 	if cli == nil {
 		cli, err = connect(ctx, uri)
 		if err != nil {
-			return nil, fmt.Errorf("connect to mongo: %w", err)
+			return fmt.Errorf("connect to mongo: %w", err)
 		}
 	}
-	return &MongoCli[R]{
-		cli: cli,
-	}, nil
+	return nil
 }

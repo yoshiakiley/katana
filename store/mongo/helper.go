@@ -114,9 +114,9 @@ NEXT:
 		delete(q, common.Uid)
 		switch uid.(type) {
 		case []string:
-			d[UID] = bson.M{IN: uid}
+			d[common.Uid] = bson.M{IN: uid}
 		default:
-			d[UID] = uid
+			d[common.Uid] = uid
 		}
 
 	}
