@@ -3,20 +3,17 @@ package katana
 import (
 	"context"
 	"fmt"
+	"github.com/yoshiakiley/katana/common"
 	"github.com/yoshiakiley/katana/core"
 	"github.com/yoshiakiley/katana/store"
 	"github.com/yoshiakiley/katana/store/mongo"
 )
 
-type storeType string
-
-const storeTypeMongo storeType = "mongo"
-
 var serviceMap = map[string]any{}
 
-func InitStore(ctx context.Context, initStore storeType, addr string) error {
+func InitStore(ctx context.Context, initStore common.StoreType, addr string) error {
 	switch initStore {
-	case storeTypeMongo:
+	case common.StoreTypeMongo:
 		return mongo.InitMongoCli(ctx, addr)
 	}
 	return nil
