@@ -9,7 +9,3 @@ const (
 	QueryOR     = "queryOr"
 	Sort        = "querySort"
 )
-
-type StoreType string
-
-const StoreTypeMongo StoreType = "mongo"
