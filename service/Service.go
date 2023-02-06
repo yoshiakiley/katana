@@ -7,6 +7,10 @@ import (
 	"github.com/yoshiakiley/katana/store"
 )
 
+type IService interface {
+	Watch(ctx context.Context, kind string, q map[string]any) (<-chan core.Event, <-chan error)
+}
+
 type Service[R core.IObject] struct {
 	Schema     string
 	Collection string
