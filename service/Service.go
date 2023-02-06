@@ -1,4 +1,4 @@
-package katana
+package service
 
 import (
 	"context"
