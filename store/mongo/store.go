@@ -54,8 +54,7 @@ func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, e
 		if err != nil {
 			return new, err
 		}
-
-		return new, nil
+		return m.GetByQuery(ctx, query)
 	}
 
 	var old R
@@ -89,8 +88,7 @@ func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, e
 	if err != nil {
 		return oldObject.Item, err
 	}
-
-	return oldObject.Item, nil
+	return m.GetByQuery(ctx, query)
 }
 
 func (m *MongoCli[R]) List(ctx context.Context, q map[string]any) ([]R, error) {
@@ -122,6 +120,21 @@ func (m *MongoCli[R]) List(ctx context.Context, q map[string]any) ([]R, error) {
 func (m *MongoCli[R]) Get(ctx context.Context, q map[string]any) (R, error) {
 	var t R
 	query := parseQ(q)
+	singleResult := m.cli.Database(query.DB).
+		Collection(query.Coll).
+		FindOne(ctx, query.Q)
+
+	if err := singleResult.Decode(&t); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return t, store.DataNotFound
+		}
+		return t, err
+	}
+	return t, nil
+}
+
+func (m *MongoCli[R]) GetByQuery(ctx context.Context, query *query) (R, error) {
+	var t R
 	singleResult := m.cli.Database(query.DB).
 		Collection(query.Coll).
 		FindOne(ctx, query.Q)
