@@ -1,11 +1,12 @@
 package common
 
 const (
-	Schema      = "schema"
-	Collection  = "collection"
-	Version     = "version"
-	Uid         = "_id"
-	MergeFields = "merge_fields"
-	QueryOR     = "queryOr"
-	Sort        = "querySort"
+	Schema       = "schema"
+	Collection   = "collection"
+	Version      = "version"
+	Uid          = "_id"
+	MergeFields  = "merge_fields"
+	QueryOR      = "queryOr"
+	Sort         = "querySort"
+	ReturnFields = "return_fields"
 )

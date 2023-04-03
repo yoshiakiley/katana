@@ -61,6 +61,7 @@ type query struct {
 	Limit       int            `json:"limit"`
 	Skip        int            `json:"skip"`
 	Sort        map[string]any `json:"sort"`
+	Fields      []string       `json:"fields"`
 }
 
 const (
@@ -97,9 +98,15 @@ func parseQ[Q map[string]any](q Q) *query {
 	}
 NEXT:
 	var fields []string
+	var returnFields []string
 	var limit int
 	var skip int
 	var sort map[string]any
+
+	if p, exist := q[common.ReturnFields]; exist {
+		returnFields = p.([]string)
+		delete(q, common.ReturnFields)
+	}
 
 	if p, exist := q[common.MergeFields]; exist {
 		fields = p.([]string)
@@ -215,6 +222,7 @@ NEXT:
 		Limit:       limit,
 		Skip:        skip,
 		Sort:        sort,
+		Fields:      returnFields,
 	}
 }
 

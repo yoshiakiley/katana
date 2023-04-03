@@ -103,6 +103,12 @@ func (m *MongoCli[R]) List(ctx context.Context, q map[string]any) ([]R, error) {
 		fOpts.SetLimit(int64(query.Limit))
 	}
 
+	project := bson.M{}
+	for _, field := range query.Fields {
+		project[field] = 1
+	}
+	fOpts.SetProjection(project)
+
 	fOpts.SetSort(query.Sort)
 	cursor, err := m.cli.Database(query.DB).
 		Collection(query.Coll).
