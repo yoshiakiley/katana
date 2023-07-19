@@ -7,6 +7,7 @@ import (
 	"github.com/yoshiakiley/katana/core"
 	"github.com/yoshiakiley/katana/dict"
 	"github.com/yoshiakiley/katana/store"
+	"github.com/yoshiakiley/katana/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -22,6 +23,9 @@ func (m *MongoCli[R]) Create(ctx context.Context, r R, q map[string]any) error {
 	nObj := core.NewObject(r, marshaler)
 	nMap, err := nObj.ToMap2(true)
 
+	if nMap[common.Uid].(string) == "" {
+		nMap[common.Uid] = utils.GetUUID()
+	}
 	if err != nil {
 		return err
 	}
@@ -47,46 +51,40 @@ func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, e
 		if err != nil {
 			return new, err
 		}
+		if nMap[common.Uid] == "" {
+			nMap[common.Uid] = utils.GetUUID()
+		}
 		_, err = m.cli.Database(query.DB).
 			Collection(query.Coll).
 			InsertOne(ctx, nMap)
-
 		if err != nil {
 			return new, err
 		}
 		return m.GetByQuery(ctx, query)
 	}
 
-	var old R
-	if err := singleResult.Decode(&old); err != nil {
+	nObj := core.NewObject(new, marshaler)
+	nMap, err := nObj.ToMap2(true)
+	if err != nil {
 		return new, err
 	}
 
-	oldObject, newObject := core.NewObject(old, marshaler), core.NewObject(new, marshaler)
-	isUpdate, q, err := oldObject.CompareMergeObject(newObject, common.Uid, query.MergeFields...)
-	if !isUpdate || err != nil {
-		return old, err
+	updateMap := map[string]any{}
+	for _, key := range query.MergeFields {
+		updateMap[key] = nMap[key]
 	}
+	updateMap[common.Version] = utils.GetVersion()
 
-	for k, v := range q {
-		query.Q[k] = v
-	}
-	oldMap, err := oldObject.ToMap2(isUpdate)
-	if err != nil {
-		return old, err
-	}
-	upsert := true
+	update := bson.M{"$set": updateMap}
+
 	_, err = m.cli.Database(query.DB).
 		Collection(query.Coll).
-		ReplaceOne(ctx,
+		UpdateOne(ctx,
 			query.Q,
-			oldMap,
-			options.MergeReplaceOptions(
-				&options.ReplaceOptions{Upsert: &upsert},
-			),
+			update,
 		)
 	if err != nil {
-		return oldObject.Item, err
+		return new, err
 	}
 	return m.GetByQuery(ctx, query)
 }

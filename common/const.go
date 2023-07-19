@@ -4,7 +4,7 @@ const (
 	Schema       = "schema"
 	Collection   = "collection"
 	Version      = "version"
-	Uid          = "_id"
+	Uid          = "uid"
 	MergeFields  = "merge_fields"
 	QueryOR      = "queryOr"
 	Sort         = "querySort"
