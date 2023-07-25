@@ -41,9 +41,16 @@ func (m *MongoCli[R]) Create(ctx context.Context, r R, q map[string]any) error {
 
 func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, error) {
 	query := parseQ(q)
+	project := bson.M{}
+	for key, _ := range query.Q {
+		project[key] = 1
+	}
+	fOpts := options.FindOne()
+	fOpts.SetProjection(project)
+
 	singleResult := m.cli.Database(query.DB).
 		Collection(query.Coll).
-		FindOne(ctx, query.Q)
+		FindOne(ctx, query.Q, fOpts)
 
 	if singleResult.Err() == mongo.ErrNoDocuments {
 		nObj := core.NewObject(new, marshaler)
@@ -139,9 +146,16 @@ func (m *MongoCli[R]) Get(ctx context.Context, q map[string]any) (R, error) {
 
 func (m *MongoCli[R]) GetByQuery(ctx context.Context, query *query) (R, error) {
 	var t R
+	project := bson.M{}
+	for _, field := range query.Fields {
+		project[field] = 1
+	}
+	fOpts := options.FindOne()
+	fOpts.SetProjection(project)
+
 	singleResult := m.cli.Database(query.DB).
 		Collection(query.Coll).
-		FindOne(ctx, query.Q)
+		FindOne(ctx, query.Q, fOpts)
 
 	if err := singleResult.Decode(&t); err != nil {
 		if err == mongo.ErrNoDocuments {
