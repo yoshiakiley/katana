@@ -19,7 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
 var opCodes = [...]string{"c", "i", "u", "d"}
@@ -116,10 +115,6 @@ type Op struct {
 	Doc               interface{}            `json:"doc,omitempty"`
 	UpdateDescription map[string]interface{} `json:"updateDescription,omitempty"`
 	ResumeToken       OpResumeToken          `json:"-"`
-}
-
-type ReplStatus struct {
-	*bsoncore.Document
 }
 
 type OpLog struct {
