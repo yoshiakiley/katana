@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/bsonx"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
 var opCodes = [...]string{"c", "i", "u", "d"}
@@ -119,7 +119,7 @@ type Op struct {
 }
 
 type ReplStatus struct {
-	*bsonx.Doc
+	*bsoncore.Document
 }
 
 type OpLog struct {
@@ -1859,32 +1859,4 @@ func Start(client *mongo.Client, o *Options) *OpCtx {
 	}
 
 	return ctx
-}
-
-func (rs *ReplStatus) GetLastCommitted() (ts primitive.Timestamp, err error) {
-	var elem bsonx.Val
-	elem, err = rs.LookupErr("optimes", "lastCommittedOpTime", "ts")
-	if err != nil {
-		return
-	}
-	if elem.Type() != bson.TypeTimestamp {
-		err = fmt.Errorf("incorrect type for 'name'. got %v. want %v", elem.Type(), bson.TypeTimestamp)
-		return
-	}
-	ts = elem.Interface().(primitive.Timestamp)
-	return
-}
-
-func GetReplStatus(client *mongo.Client) (rs *ReplStatus, err error) {
-	db := client.Database("admin")
-	result := db.RunCommand(context.Background(), bson.M{
-		"replSetGetStatus": 1,
-	})
-	if err = result.Err(); err == nil {
-		doc := &bsonx.Doc{}
-		if err = result.Decode(doc); err == nil {
-			rs = &ReplStatus{doc}
-		}
-	}
-	return
 }

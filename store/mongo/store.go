@@ -156,7 +156,7 @@ func (m *MongoCli[R]) GetByQuery(ctx context.Context, query *query) (R, error) {
 	singleResult := m.cli.Database(query.DB).
 		Collection(query.Coll).
 		FindOne(ctx, query.Q, fOpts)
-
+	//m.cli.Database().Collection().Watch()
 	if err := singleResult.Decode(&t); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return t, store.DataNotFound
