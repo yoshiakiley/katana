@@ -5,20 +5,20 @@ import (
 	"strings"
 )
 
-// CompareMergeObject
-// CompareMergeObject(src, dest,["spec.userId","spec.userName"])
-func CompareMergeObject(src, dest map[string]any, paths ...string) bool {
+// (src, dest,["spec.userId","spec.userName"])
+func CompareMergeObject(src, dest map[string]any, paths ...string) (map[string]any, bool) {
 	isUpdate := false
+	updateMap := map[string]any{}
 	for _, p := range paths {
 		srcContent := Get(src, p)
-		destContent := Get(dest, p)
-		if reflect.DeepEqual(srcContent, destContent) {
+		desContent := Get(dest, p)
+		if reflect.DeepEqual(srcContent, desContent) {
 			continue
 		}
-		Set(src, p, destContent)
+		updateMap[p] = desContent
 		isUpdate = true
 	}
-	return isUpdate
+	return updateMap, isUpdate
 }
 
 // Set "path":"a.b.c"

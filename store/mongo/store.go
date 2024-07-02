@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/yoshiakiley/katana/common"
 	"github.com/yoshiakiley/katana/core"
@@ -16,9 +17,7 @@ import (
 	"time"
 )
 
-var nilfilter = map[string]any{}
-
-func (m *MongoCli[R]) Create(ctx context.Context, r R, q map[string]any) error {
+func Create[R core.IObject](ctx context.Context, m *MongoCli, r R, q map[string]any) error {
 	query := parseQ(q)
 	nObj := core.NewObject(r, marshaler)
 	nMap, err := nObj.ToMap2(true)
@@ -39,12 +38,16 @@ func (m *MongoCli[R]) Create(ctx context.Context, r R, q map[string]any) error {
 	return nil
 }
 
-func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, error) {
+func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[string]any) (R, error) {
 	query := parseQ(q)
 	project := bson.M{}
 	for key, _ := range query.Q {
 		project[key] = 1
 	}
+	for _, key := range query.MergeFields {
+		project[key] = 1
+	}
+
 	fOpts := options.FindOne()
 	fOpts.SetProjection(project)
 
@@ -52,7 +55,7 @@ func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, e
 		Collection(query.Coll).
 		FindOne(ctx, query.Q, fOpts)
 
-	if singleResult.Err() == mongo.ErrNoDocuments {
+	if singleResult == nil || errors.Is(singleResult.Err(), mongo.ErrNoDocuments) {
 		nObj := core.NewObject(new, marshaler)
 		nMap, err := nObj.ToMap2(true)
 		if err != nil {
@@ -67,36 +70,35 @@ func (m *MongoCli[R]) Update(ctx context.Context, new R, q map[string]any) (R, e
 		if err != nil {
 			return new, err
 		}
-		return m.GetByQuery(ctx, query)
+		return GetByQuery[R](ctx, m, query)
 	}
 
-	nObj := core.NewObject(new, marshaler)
-	nMap, err := nObj.ToMap2(true)
-	if err != nil {
+	var old R
+	if err := singleResult.Decode(&old); err != nil {
 		return new, err
 	}
 
-	updateMap := map[string]any{}
-	for _, key := range query.MergeFields {
-		updateMap[key] = nMap[key]
+	oldObject, newObject := core.NewObject(old, marshaler), core.NewObject(new, marshaler)
+	updateMap, isUpdate, err := oldObject.CompareMergeObject(newObject, query.MergeFields...)
+	if !isUpdate || err != nil {
+		return old, err
 	}
-	updateMap[common.Version] = utils.GetVersion()
 
-	update := bson.M{"$set": updateMap}
+	updateMap[common.Version] = utils.GetVersion()
 
 	_, err = m.cli.Database(query.DB).
 		Collection(query.Coll).
 		UpdateOne(ctx,
 			query.Q,
-			update,
+			bson.M{"$set": updateMap},
 		)
 	if err != nil {
 		return new, err
 	}
-	return m.GetByQuery(ctx, query)
+	return GetByQuery[R](ctx, m, query)
 }
 
-func (m *MongoCli[R]) List(ctx context.Context, q map[string]any) ([]R, error) {
+func List[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) ([]R, error) {
 	var targets []R
 	fOpts := options.Find()
 	query := parseQ(q)
@@ -128,7 +130,7 @@ func (m *MongoCli[R]) List(ctx context.Context, q map[string]any) ([]R, error) {
 	return targets, nil
 }
 
-func (m *MongoCli[R]) Get(ctx context.Context, q map[string]any) (R, error) {
+func Get[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) (R, error) {
 	var t R
 	query := parseQ(q)
 	singleResult := m.cli.Database(query.DB).
@@ -136,7 +138,7 @@ func (m *MongoCli[R]) Get(ctx context.Context, q map[string]any) (R, error) {
 		FindOne(ctx, query.Q)
 
 	if err := singleResult.Decode(&t); err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			return t, store.DataNotFound
 		}
 		return t, err
@@ -144,7 +146,7 @@ func (m *MongoCli[R]) Get(ctx context.Context, q map[string]any) (R, error) {
 	return t, nil
 }
 
-func (m *MongoCli[R]) GetByQuery(ctx context.Context, query *query) (R, error) {
+func GetByQuery[R core.IObject](ctx context.Context, m *MongoCli, query *query) (R, error) {
 	var t R
 	project := bson.M{}
 	for _, field := range query.Fields {
@@ -166,7 +168,7 @@ func (m *MongoCli[R]) GetByQuery(ctx context.Context, query *query) (R, error) {
 	return t, nil
 }
 
-func (m *MongoCli[R]) Count(ctx context.Context, q map[string]any) (int64, error) {
+func Count(ctx context.Context, m *MongoCli, q map[string]any) (int64, error) {
 	query := parseQ(q)
 
 	count, err := m.cli.Database(query.DB).Collection(query.Coll).CountDocuments(ctx, query.Q, options.Count())
@@ -177,7 +179,7 @@ func (m *MongoCli[R]) Count(ctx context.Context, q map[string]any) (int64, error
 	return count, nil
 }
 
-func (m *MongoCli[R]) Delete(ctx context.Context, q map[string]any) error {
+func Delete(ctx context.Context, m *MongoCli, q map[string]any) error {
 	query := parseQ(q)
 	if _, err := m.cli.Database(query.DB).
 		Collection(query.Coll).
@@ -240,7 +242,7 @@ func versionMatchFilter(opData map[string]any, ver uint64) bool {
 	return true
 }
 
-func (m *MongoCli[R]) Watch(ctx context.Context, kind string, q map[string]any) (<-chan core.Event, <-chan error) {
+func Watch[R core.IObject](ctx context.Context, kind string, m *MongoCli, q map[string]any) (<-chan core.Event, <-chan error) {
 	errC := make(chan error)
 	query := parseQ(q)
 
@@ -320,44 +322,4 @@ func (m *MongoCli[R]) Watch(ctx context.Context, kind string, q map[string]any) 
 	}()
 
 	return eventC, errC
-}
-
-func (m *MongoCli[R]) checkExistAndCreate(ctx context.Context, db, collection string, enableIndex bool, uniqeKeys ...string) error {
-	names, err := m.cli.Database(db).
-		ListCollectionNames(ctx, nilfilter)
-	if err != nil {
-		return err
-	}
-	exist := false
-
-	for _, name := range names {
-		if name == collection {
-			exist = true
-		}
-	}
-
-	if !exist {
-		if err := m.cli.Database(db).CreateCollection(ctx, collection); err != nil {
-			return err
-		}
-	}
-
-	if enableIndex {
-		keys := bson.D{}
-		for _, k := range uniqeKeys {
-			keys = append(keys, bson.E{Key: k, Value: 1})
-		}
-		indexModel := mongo.IndexModel{
-			Keys:    keys,
-			Options: options.Index().SetUnique(true),
-		}
-		if _, err = m.cli.Database(db).
-			Collection(collection).
-			Indexes().
-			CreateOne(ctx, indexModel); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

@@ -23,7 +23,7 @@ func NewMongoService[R core.IObject](schema, collection string) *service.Service
 		Schema:     schema,
 		Collection: collection,
 	}
-	svc.Set(store.NewStore[R](mongo.NewMongoCli[R](), nil))
+	svc.Set(store.NewStore(mongo.NewMongoCli()))
 
 	service.Set(fmt.Sprintf("%s-%s", schema, collection), svc)
 

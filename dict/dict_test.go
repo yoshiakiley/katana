@@ -109,7 +109,8 @@ var dest = map[string]interface{}{
 }
 
 func Test_Compare(t *testing.T) {
-	if !CompareMergeObject(src, dest, "spec.a") {
+	_, ok := CompareMergeObject(src, dest, "spec.a")
+	if !ok {
 		t.Fatal("expected not equal")
 	}
 
@@ -124,8 +125,9 @@ func Test_Compare(t *testing.T) {
 	if !reflect.DeepEqual(src, expected) {
 		t.Fatalf("expected equal,%v", src)
 	}
+	_, ok = CompareMergeObject(src, dest, "spec")
 
-	if !CompareMergeObject(src, dest, "spec") {
+	if !ok {
 		t.Fatal("expected not equal")
 	}
 

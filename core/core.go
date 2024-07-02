@@ -44,31 +44,22 @@ func (o *Object[T]) Set(item T) { o.Item = item }
 
 func (o *Object[T]) Get() T { return o.Item }
 
-func (o *Object[T]) CompareMergeObject(other Object[T], key string, paths ...string) (bool, map[string]any, error) {
+func (o *Object[T]) CompareMergeObject(other Object[T], paths ...string) (map[string]any, bool, error) {
 	self, err := o.ToMap()
 	if err != nil {
-		return false, nil, err
+		return nil, false, err
 	}
 	_other, err := other.ToMap()
 	if err != nil {
-		return false, nil, err
+		return nil, false, err
 	}
 
-	value := dict.Get(self, key)
-	q := map[string]any{}
-	if value != nil {
-		q = map[string]any{key: dict.Get(self, key)}
-	}
 	for _, k := range defaultDiscardedKeys {
 		dict.Delete(self, k)
 	}
 
-	isUpdate := dict.CompareMergeObject(self, _other, paths...)
-	if !isUpdate {
-		return false, q, nil
-	}
-
-	return true, q, o.From(self)
+	updateMap, isUpdate := dict.CompareMergeObject(self, _other, paths...)
+	return updateMap, isUpdate, nil
 }
 
 func (o *Object[T]) Unmarshal(a []byte) error {
