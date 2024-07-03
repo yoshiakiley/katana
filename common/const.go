@@ -10,3 +10,5 @@ const (
 	Sort         = "querySort"
 	ReturnFields = "return_fields"
 )
+
+var store string

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func Create[R core.IObject](ctx context.Context, m *MongoCli, r R, q map[string]any) error {
+func Create[R core.IObject](ctx context.Context, r R, q map[string]any) error {
 	query := parseQ(q)
 	nObj := core.NewObject(r, marshaler)
 	nMap, err := nObj.ToMap2(true)
@@ -28,7 +28,7 @@ func Create[R core.IObject](ctx context.Context, m *MongoCli, r R, q map[string]
 	if err != nil {
 		return err
 	}
-	_, err = m.cli.
+	_, err = cli.
 		Database(query.DB).
 		Collection(query.Coll).
 		InsertOne(ctx, nMap)
@@ -38,7 +38,7 @@ func Create[R core.IObject](ctx context.Context, m *MongoCli, r R, q map[string]
 	return nil
 }
 
-func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[string]any) (R, error) {
+func Update[R core.IObject](ctx context.Context, new R, q map[string]any) (R, error) {
 	query := parseQ(q)
 	project := bson.M{}
 	for key, _ := range query.Q {
@@ -51,7 +51,7 @@ func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[strin
 	fOpts := options.FindOne()
 	fOpts.SetProjection(project)
 
-	singleResult := m.cli.Database(query.DB).
+	singleResult := cli.Database(query.DB).
 		Collection(query.Coll).
 		FindOne(ctx, query.Q, fOpts)
 
@@ -64,13 +64,13 @@ func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[strin
 		if nMap[common.Uid] == "" {
 			nMap[common.Uid] = utils.GetUUID()
 		}
-		_, err = m.cli.Database(query.DB).
+		_, err = cli.Database(query.DB).
 			Collection(query.Coll).
 			InsertOne(ctx, nMap)
 		if err != nil {
 			return new, err
 		}
-		return GetByQuery[R](ctx, m, query)
+		return GetByQuery[R](ctx, query)
 	}
 
 	var old R
@@ -86,7 +86,7 @@ func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[strin
 
 	updateMap[common.Version] = utils.GetVersion()
 
-	_, err = m.cli.Database(query.DB).
+	_, err = cli.Database(query.DB).
 		Collection(query.Coll).
 		UpdateOne(ctx,
 			query.Q,
@@ -95,10 +95,10 @@ func Update[R core.IObject](ctx context.Context, m *MongoCli, new R, q map[strin
 	if err != nil {
 		return new, err
 	}
-	return GetByQuery[R](ctx, m, query)
+	return GetByQuery[R](ctx, query)
 }
 
-func List[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) ([]R, error) {
+func List[R core.IObject](ctx context.Context, q map[string]any) ([]R, error) {
 	var targets []R
 	fOpts := options.Find()
 	query := parseQ(q)
@@ -117,7 +117,8 @@ func List[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) ([
 	fOpts.SetProjection(project)
 
 	fOpts.SetSort(query.Sort)
-	cursor, err := m.cli.Database(query.DB).
+
+	cursor, err := cli.Database(query.DB).
 		Collection(query.Coll).
 		Find(ctx, query.Q, fOpts)
 	if err != nil {
@@ -130,10 +131,10 @@ func List[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) ([
 	return targets, nil
 }
 
-func Get[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) (R, error) {
+func Get[R core.IObject](ctx context.Context, q map[string]any) (R, error) {
 	var t R
 	query := parseQ(q)
-	singleResult := m.cli.Database(query.DB).
+	singleResult := cli.Database(query.DB).
 		Collection(query.Coll).
 		FindOne(ctx, query.Q)
 
@@ -146,7 +147,7 @@ func Get[R core.IObject](ctx context.Context, m *MongoCli, q map[string]any) (R,
 	return t, nil
 }
 
-func GetByQuery[R core.IObject](ctx context.Context, m *MongoCli, query *query) (R, error) {
+func GetByQuery[R core.IObject](ctx context.Context, query *query) (R, error) {
 	var t R
 	project := bson.M{}
 	for _, field := range query.Fields {
@@ -155,10 +156,10 @@ func GetByQuery[R core.IObject](ctx context.Context, m *MongoCli, query *query) 
 	fOpts := options.FindOne()
 	fOpts.SetProjection(project)
 
-	singleResult := m.cli.Database(query.DB).
+	singleResult := cli.Database(query.DB).
 		Collection(query.Coll).
 		FindOne(ctx, query.Q, fOpts)
-	//m.cli.Database().Collection().Watch()
+	//cli.Database().Collection().Watch()
 	if err := singleResult.Decode(&t); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return t, store.DataNotFound
@@ -168,10 +169,10 @@ func GetByQuery[R core.IObject](ctx context.Context, m *MongoCli, query *query) 
 	return t, nil
 }
 
-func Count(ctx context.Context, m *MongoCli, q map[string]any) (int64, error) {
+func Count(ctx context.Context, q map[string]any) (int64, error) {
 	query := parseQ(q)
 
-	count, err := m.cli.Database(query.DB).Collection(query.Coll).CountDocuments(ctx, query.Q, options.Count())
+	count, err := cli.Database(query.DB).Collection(query.Coll).CountDocuments(ctx, query.Q, options.Count())
 	if err != nil {
 		return 0, err
 	}
@@ -179,9 +180,9 @@ func Count(ctx context.Context, m *MongoCli, q map[string]any) (int64, error) {
 	return count, nil
 }
 
-func Delete(ctx context.Context, m *MongoCli, q map[string]any) error {
+func Delete(ctx context.Context, q map[string]any) error {
 	query := parseQ(q)
-	if _, err := m.cli.Database(query.DB).
+	if _, err := cli.Database(query.DB).
 		Collection(query.Coll).
 		DeleteMany(ctx, query.Q); err != nil {
 		return err
@@ -242,7 +243,7 @@ func versionMatchFilter(opData map[string]any, ver uint64) bool {
 	return true
 }
 
-func Watch[R core.IObject](ctx context.Context, kind string, m *MongoCli, q map[string]any) (<-chan core.Event, <-chan error) {
+func Watch[R core.IObject](ctx context.Context, kind string, q map[string]any) (<-chan core.Event, <-chan error) {
 	errC := make(chan error)
 	query := parseQ(q)
 
@@ -261,7 +262,7 @@ func Watch[R core.IObject](ctx context.Context, kind string, m *MongoCli, q map[
 		}
 		return true
 	}
-	oplogTailCtx := Start(m.cli, &Options{
+	oplogTailCtx := Start(cli, &Options{
 		DirectReadNs:     []string{ns},
 		ChangeStreamNs:   []string{ns},
 		MaxAwaitTime:     10,
